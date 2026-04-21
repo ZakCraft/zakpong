@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZAK PONG — Tennis Edition</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23c8e63b' stroke='%239db82e' stroke-width='3'/><path d='M50 4 Q78 22 78 50 Q78 78 50 96 Q58 78 58 50 Q58 22 50 4Z' fill='white' opacity='0.55'/><path d='M50 4 Q22 22 22 50 Q22 78 50 96 Q42 78 42 50 Q42 22 50 4Z' fill='white' opacity='0.55'/></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600&display=swap');
+
+  :root {
+    --green-dark:  #1e3d1a;
+    --green-court: #3d7a34;
+    --accent:      #c8e63b;
+    --p1-col:      #e74c3c;
+    --p2-col:      #3498db;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--green-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Oswald', sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% -10%, #2a5226 0%, #0d180d 75%);
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(26px, 5vw, 50px);
+    letter-spacing: 10px;
+    color: var(--accent);
+    text-shadow: 0 2px 0 #000, 0 0 28px rgba(200,230,59,.45);
+  }
+
+  .ball-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 36% 36%, #e8f535, #9db82e);
+    box-shadow: 0 0 10px rgba(200,230,59,.6);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .ball-icon::before {
+    content: '';
+    position: absolute; inset: 4px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.6);
+    clip-path: ellipse(60% 40% at 50% 50%);
+  }
+
+  /* ── Scoreboard ── */
+  .scoreboard {
+    display: flex;
+    align-items: stretch;
+    background: rgba(0,0,0,.55);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 300px;
+  }
+
+  .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 14px 8px;
+    gap: 1px;
+  }
+  .panel.p1 { background: rgba(231,76,60,.12); border-right: 1px solid rgba(255,255,255,.08); }
+  .panel.p2 { background: rgba(52,152,219,.12); }
+
+  .plabel { font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  .pname  { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; }
+  .p1 .pname { color: var(--p1-col); }
+  .p2 .pname { color: var(--p2-col); }
+
+  .sval {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 50px; line-height: 1;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    transition: transform .12s;
+  }
+  .sval.pop { transform: scale(1.5); }
+
+  .sdiv {
+    display: flex; align-items: center; padding: 0 10px;
+    color: rgba(255,255,255,.25);
+    font-family: 'Bebas Neue', sans-serif; font-size: 30px;
+  }
+
+  /* ── Canvas ── */
+  .court-wrap {
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 3px rgba(255,255,255,.1),
+      0 10px 48px rgba(0,0,0,.65),
+      0 0 80px rgba(62,120,52,.4);
+  }
+
+  canvas { display: block; }
+
+  /* ── Overlay ── */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px);
+    z-index: 20;
+    gap: 10px;
+  }
+  .overlay.off { display: none; }
+
+  .ov-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(30px, 6vw, 58px);
+    letter-spacing: 8px;
+    color: var(--accent);
+    text-shadow: 0 2px 0 #000, 0 0 40px rgba(200,230,59,.5);
+  }
+  .ov-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(16px, 3.5vw, 28px);
+    letter-spacing: 4px;
+    padding: 6px 20px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.08);
+    min-height: 1em;
+  }
+  .ov-sub {
+    font-size: clamp(10px, 2vw, 13px);
+    letter-spacing: 4px;
+    color: rgba(255,255,255,.65);
+    animation: blink 1.1s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Controls ── */
+  .controls {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,.28);
+    text-align: center;
+  }
+  .controls b { color: rgba(255,255,255,.5); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="ball-icon"></div>
+    <div class="title">ZAK PONG</div>
+    <div class="ball-icon"></div>
+  </header>
+
+  <div class="scoreboard">
+    <div class="panel p1">
+      <div class="plabel">You</div>
+      <div class="pname">Player</div>
+      <div class="sval" id="sL">0</div>
+    </div>
+    <div class="sdiv">—</div>
+    <div class="panel p2">
+      <div class="plabel">AI</div>
+      <div class="pname">Robot</div>
+      <div class="sval" id="sR">0</div>
+    </div>
+  </div>
+
+  <div class="court-wrap">
+    <canvas id="court" width="720" height="440"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="ov-title" id="ovTitle">ZAK PONG</div>
+      <div class="ov-badge" id="ovBadge">TENNIS EDITION</div>
+      <div class="ov-sub"  id="ovSub">PRESS SPACE TO SERVE</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <b>W / S</b> or <b>↑ / ↓</b> to move &nbsp;·&nbsp; <b>SPACE</b> serve / pause
+  </div>
+
+</div>
+<script>
+(function () {
+"use strict";
+
+// ─── Canvas setup ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('court');
+const G      = canvas.getContext('2d');   // 'G' avoids collision with AudioContext vars
+const W = canvas.width, H = canvas.height;
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+const PW       = 14;    // paddle width
+const PH       = 82;    // paddle height
+const BALL_R   = 9;     // ball radius
+const PSPEED   = 5.5;   // player speed
+const WIN      = 7;     // points to win
+const TRAIL    = 10;    // trail length
+
+// ─── Game state ────────────────────────────────────────────────────────────
+let mode = 'idle';      // 'idle' | 'playing' | 'paused' | 'over'
+let keys = {};
+let sL = 0, sR = 0;
+let particles = [];
+let shake = 0;
+
+// These are initialised in initGame() before the first draw.
+let lp = { x:22, y:H/2-PH/2, w:PW, h:PH };
+let rp = { x:W-22-PW, y:H/2-PH/2, w:PW, h:PH };
+let ball = { x:W/2, y:H/2, vx:5, vy:0, trail:[] };
+
+// ─── Audio ─────────────────────────────────────────────────────────────────
+let audioCtx = null;
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function synth(freq, freq2, dur, oscType, vol, attackT, releaseT) {
+  try {
+    const ctx  = ac();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now  = ctx.currentTime;
+    osc.type = oscType;
+    osc.frequency.setValueAtTime(freq, now);
+    if (freq2 != null) osc.frequency.linearRampToValueAtTime(freq2, now + dur);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + attackT);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + releaseT);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + releaseT + 0.05);
+  } catch (_) {}
+}
+
+// Racket thwack — body impact + snap
+function sndHit() {
+  synth(160, 70,  0.07, 'triangle', 0.38, 0.002, 0.13);
+  synth(900, 350, 0.05, 'sawtooth', 0.10, 0.001, 0.07);
+  synth(3000,1000,0.03, 'square',   0.04, 0.001, 0.04);
+}
+
+// Ball hitting wall / baseline
+function sndWall() {
+  synth(260, 180, 0.06, 'triangle', 0.22, 0.002, 0.10);
+  synth(600, 300, 0.04, 'square',   0.06, 0.001, 0.05);
+}
+
+// Point scored — whistling arc downward
+function sndPoint() {
+  synth(780, 260, 0.32, 'sine', 0.28, 0.01, 0.38);
+  setTimeout(() => synth(90, 60, 0.22, 'sine', 0.32, 0.005, 0.28), 90);
+  setTimeout(() => synth(440, 380, 0.14, 'sine', 0.15, 0.01, 0.20), 180);
+}
+
+// Win fanfare — rising arpeggio
+function sndWin() {
+  [523, 659, 784, 988, 1319].forEach((f, i) =>
+    setTimeout(() => synth(f, f * 1.05, 0.22, 'sine', 0.22, 0.01, 0.30), i * 110));
+  setTimeout(() => synth(1319, 1760, 0.45, 'sine', 0.28, 0.01, 0.55), 620);
+}
+
+// ─── Pre-rendered court ────────────────────────────────────────────────────
+const courtBuf = document.createElement('canvas');
+courtBuf.width = W; courtBuf.height = H;
+(function buildCourt() {
+  const c = courtBuf.getContext('2d');
+
+  // Base
+  c.fillStyle = '#3d7a34'; c.fillRect(0,0,W,H);
+
+  // Alternating grass stripes
+  for (let i = 0; i < 10; i++) {
+    c.fillStyle = i%2===0 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.018)';
+    c.fillRect(0, H/10*i, W, H/10);
+  }
+
+  // Infield lighter
+  c.fillStyle = 'rgba(255,255,255,0.025)';
+  c.fillRect(W*0.05, H*0.07, W*0.9, H*0.86);
+
+  // Outer boundary
+  c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 3;
+  c.strokeRect(W*0.04, H*0.06, W*0.92, H*0.88);
+
+  // Service line (horizontal centre)
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(W*0.04, H/2); c.lineTo(W*0.96, H/2); c.stroke();
+
+  // Centre service line (vertical)
+  c.beginPath(); c.moveTo(W/2, H*0.06); c.lineTo(W/2, H*0.94); c.stroke();
+
+  // Centre mark on baseline
+  c.lineWidth = 2.5;
+  c.beginPath(); c.moveTo(W/2-10, H*0.06); c.lineTo(W/2+10, H*0.06); c.stroke();
+  c.beginPath(); c.moveTo(W/2-10, H*0.94); c.lineTo(W/2+10, H*0.94); c.stroke();
+
+  // Net shadow
+  c.lineWidth = 7;
+  c.strokeStyle = 'rgba(0,0,0,0.3)';
+  c.beginPath(); c.moveTo(W/2+3, H*0.04+3); c.lineTo(W/2+3, H*0.96+3); c.stroke();
+
+  // Net
+  c.lineWidth = 6;
+  c.strokeStyle = 'rgba(255,255,255,0.92)';
+  c.beginPath(); c.moveTo(W/2, H*0.04); c.lineTo(W/2, H*0.96); c.stroke();
+
+  // Net posts
+  c.fillStyle = '#ddd';
+  c.fillRect(W/2-4, H*0.02, 8, 12);
+  c.fillRect(W/2-4, H*0.95, 8, 12);
+
+  // Net top band
+  c.lineWidth = 4; c.strokeStyle = 'rgba(200,200,200,0.6)';
+  c.beginPath(); c.moveTo(W/2-6, H*0.04); c.lineTo(W/2+6, H*0.04); c.stroke();
+})();
+
+// ─── Particles ─────────────────────────────────────────────────────────────
+function burst(x, y, col, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * 4.5 + 1;
+    particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 1,
+                     r: Math.random()*5+2, life:1, color:col });
+  }
+}
+
+function tickParticles() {
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.vx *= 0.95; p.life -= 0.036;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// ─── AI ────────────────────────────────────────────────────────────────────
+function tickAI() {
+  const center = rp.y + rp.h / 2;
+  const target = ball.y + (Math.random() * 16 - 8);
+  const spd    = PSPEED * 0.80;
+  if (Math.abs(target - center) > 4)
+    rp.y += target > center ? spd : -spd;
+  rp.y = Math.max(0, Math.min(H - rp.h, rp.y));
+}
+
+// ─── Collision (AABB+circle) ───────────────────────────────────────────────
+function hitPaddle(p, outDirX) {
+  const cx = Math.max(p.x, Math.min(p.x + p.w, ball.x));
+  const cy = Math.max(p.y, Math.min(p.y + p.h, ball.y));
+  const dx = ball.x - cx, dy = ball.y - cy;
+  if (dx*dx + dy*dy > BALL_R*BALL_R) return false;
+
+  const relY    = (ball.y - (p.y + p.h/2)) / (p.h/2);
+  const ang     = relY * 65 * (Math.PI/180);
+  const spd     = Math.min(Math.hypot(ball.vx, ball.vy) * 1.055, 15);
+  ball.vx = outDirX * spd * Math.cos(ang);
+  ball.vy = spd * Math.sin(ang);
+
+  // Eject cleanly to prevent tunnelling / double-hit
+  ball.x = outDirX > 0 ? p.x + p.w + BALL_R + 1 : p.x - BALL_R - 1;
+
+  sndHit();
+  shake = 7;
+  burst(ball.x, ball.y, outDirX > 0 ? '#e74c3c' : '#3498db', 12);
+  return true;
+}
+
+// ─── Update ────────────────────────────────────────────────────────────────
+function update() {
+  // Player movement
+  if (keys['w'] || keys['W'] || keys['ArrowUp'])   lp.y -= PSPEED;
+  if (keys['s'] || keys['S'] || keys['ArrowDown'])  lp.y += PSPEED;
+  lp.y = Math.max(0, Math.min(H - lp.h, lp.y));
+
+  tickAI();
+
+  // Trail
+  ball.trail.push({ x: ball.x, y: ball.y });
+  if (ball.trail.length > TRAIL) ball.trail.shift();
+
+  // Move
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Top / bottom walls
+  if (ball.y - BALL_R <= 0) {
+    ball.y = BALL_R; ball.vy = Math.abs(ball.vy);
+    sndWall(); burst(ball.x, 0, '#c8e63b', 6);
+  }
+  if (ball.y + BALL_R >= H) {
+    ball.y = H - BALL_R; ball.vy = -Math.abs(ball.vy);
+    sndWall(); burst(ball.x, H, '#c8e63b', 6);
+  }
+
+  // Paddle collision — only test the side the ball is moving toward
+  if (ball.vx < 0) hitPaddle(lp,  1);
+  if (ball.vx > 0) hitPaddle(rp, -1);
+
+  // Score
+  if (ball.x + BALL_R < 0) {
+    sR++;
+    bumpScore('R');
+    sndPoint();
+    burst(0, ball.y, '#3498db', 22);
+    if (sR >= WIN) { endGame(false); return; }
+    resetRound();
+  }
+  if (ball.x - BALL_R > W) {
+    sL++;
+    bumpScore('L');
+    sndPoint();
+    burst(W, ball.y, '#e74c3c', 22);
+    if (sL >= WIN) { endGame(true); return; }
+    resetRound();
+  }
+
+  tickParticles();
+  if (shake > 0) shake = Math.max(0, shake - 0.9);
+}
+
+// ─── DOM helpers ───────────────────────────────────────────────────────────
+function bumpScore(side) {
+  document.getElementById('sL').textContent = sL;
+  document.getElementById('sR').textContent = sR;
+  const el = document.getElementById(side === 'L' ? 'sL' : 'sR');
+  el.classList.add('pop');
+  setTimeout(() => el.classList.remove('pop'), 220);
+}
+
+function showOverlay(title, badge, sub, badgeColor) {
+  document.getElementById('ovTitle').textContent = title;
+  const b = document.getElementById('ovBadge');
+  b.textContent = badge;
+  b.style.color = badgeColor || '#c8e63b';
+  document.getElementById('ovSub').textContent = sub;
+  document.getElementById('overlay').classList.remove('off');
+}
+function hideOverlay() {
+  document.getElementById('overlay').classList.add('off');
+}
+
+// ─── Game lifecycle ─────────────────────────────────────────────────────────
+function resetRound() {
+  const angle = (Math.random() * 50 - 25) * (Math.PI / 180);
+  const dir   = Math.random() < 0.5 ? 1 : -1;
+  ball = { x: W/2, y: H/2, vx: dir*5.5*Math.cos(angle), vy: 5.5*Math.sin(angle), trail: [] };
+  lp   = { x:22,       y:H/2-PH/2, w:PW, h:PH };
+  rp   = { x:W-22-PW,  y:H/2-PH/2, w:PW, h:PH };
+}
+
+function initGame() {
+  sL = 0; sR = 0;
+  document.getElementById('sL').textContent = '0';
+  document.getElementById('sR').textContent = '0';
+  particles = [];
+  resetRound();
+}
+
+function endGame(playerWon) {
+  mode = 'over';
+  sndWin();
+  showOverlay(
+    playerWon ? 'CHAMPION!' : 'GAME OVER',
+    playerWon ? '🏆  MATCH WIN — PLAYER' : '🤖  MATCH WIN — AI',
+    'PRESS SPACE TO PLAY AGAIN',
+    playerWon ? '#c8e63b' : '#e74c3c'
+  );
+}
+
+// ─── Draw ──────────────────────────────────────────────────────────────────
+function drawRacket(p, frameCol) {
+  const cx = p.x + p.w / 2;
+  const cy = p.y + p.h / 2;
+  const rx = p.w * 0.85;
+  const ry = p.h * 0.5;
+
+  G.save();
+  G.shadowColor = 'rgba(0,0,0,.45)'; G.shadowBlur = 10;
+  G.shadowOffsetX = 2; G.shadowOffsetY = 2;
+
+  // Handle
+  G.fillStyle = '#7a3b10';
+  G.beginPath();
+  G.roundRect(cx-4, cy+ry-8, 8, p.h*0.28, 3);
+  G.fill();
+
+  // Frame
+  G.shadowColor = frameCol; G.shadowBlur = 16;
+  G.strokeStyle = frameCol; G.lineWidth = 4;
+  G.beginPath();
+  G.ellipse(cx, cy - p.h*0.08, rx, ry, 0, 0, Math.PI*2);
+  G.stroke();
+
+  // Strings
+  G.shadowBlur = 0;
+  G.strokeStyle = 'rgba(255,255,255,.45)'; G.lineWidth = 1;
+  const oy = cy - p.h*0.08;
+  // Horizontal strings
+  for (let sy = oy - ry + 7; sy <= oy + ry - 7; sy += 8) {
+    const dy   = sy - oy;
+    const half = Math.sqrt(Math.max(0, rx*rx*(1 - dy*dy/(ry*ry))));
+    G.beginPath(); G.moveTo(cx-half+2, sy); G.lineTo(cx+half-2, sy); G.stroke();
+  }
+  // Vertical strings
+  for (let sx = cx - rx + 7; sx <= cx + rx - 7; sx += 7) {
+    const dx   = sx - cx;
+    const half = Math.sqrt(Math.max(0, ry*ry*(1 - dx*dx/(rx*rx))));
+    G.beginPath(); G.moveTo(sx, oy-half+2); G.lineTo(sx, oy+half-2); G.stroke();
+  }
+
+  G.restore();
+}
+
+function drawBall() {
+  const bx = ball.x, by = ball.y;
+  G.save();
+  G.shadowColor = 'rgba(200,230,59,.8)'; G.shadowBlur = 18;
+  const gr = G.createRadialGradient(bx-3, by-3, 1, bx, by, BALL_R);
+  gr.addColorStop(0,   '#eef540');
+  gr.addColorStop(0.6, '#c8e63b');
+  gr.addColorStop(1,   '#9db82e');
+  G.fillStyle = gr;
+  G.beginPath(); G.arc(bx, by, BALL_R, 0, Math.PI*2); G.fill();
+  // Seam
+  G.shadowBlur = 0; G.strokeStyle = 'rgba(255,255,255,.6)'; G.lineWidth = 1.5;
+  G.beginPath(); G.arc(bx, by, BALL_R*.62,  0.4, Math.PI-0.4); G.stroke();
+  G.beginPath(); G.arc(bx, by, BALL_R*.62, Math.PI+0.4, Math.PI*2-0.4); G.stroke();
+  G.restore();
+}
+
+function drawTrail() {
+  const len = ball.trail.length;
+  for (let i = 0; i < len; i++) {
+    const pt   = ball.trail[i];
+    const frac = (i + 1) / len;              // always > 0
+    const r    = Math.max(0.5, BALL_R * frac * 0.72);
+    G.save();
+    G.globalAlpha = frac * 0.42;
+    G.fillStyle   = '#c8e63b';
+    G.beginPath(); G.arc(pt.x, pt.y, r, 0, Math.PI*2); G.fill();
+    G.restore();
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const r = Math.max(0.5, p.r * p.life);
+    G.save();
+    G.globalAlpha = Math.max(0, p.life);
+    G.fillStyle   = p.color;
+    G.shadowColor = p.color; G.shadowBlur = 6;
+    G.beginPath(); G.arc(p.x, p.y, r, 0, Math.PI*2); G.fill();
+    G.restore();
+  }
+}
+
+function draw() {
+  const sx = shake > 0 ? (Math.random()-.5)*shake : 0;
+  const sy = shake > 0 ? (Math.random()-.5)*shake : 0;
+
+  G.save();
+  G.translate(sx, sy);
+
+  G.drawImage(courtBuf, 0, 0);
+  drawParticles();
+  drawTrail();
+  drawBall();
+  drawRacket(lp, '#e74c3c');
+  drawRacket(rp, '#3498db');
+
+  G.restore();
+}
+
+// ─── Game loop (single RAF — always running) ───────────────────────────────
+let lastTS = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = ts - lastTS;
+  lastTS = ts;
+  if (mode === 'playing' && dt < 200) update();
+  draw();
+}
+
+// ─── Input ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key !== ' ' && e.key !== 'Enter') return;
+  e.preventDefault();
+
+  if (mode === 'idle' || mode === 'over') {
+    initGame(); mode = 'playing'; hideOverlay();
+  } else if (mode === 'playing') {
+    mode = 'paused';
+    showOverlay('PAUSED', '', 'PRESS SPACE TO RESUME');
+  } else if (mode === 'paused') {
+    mode = 'playing'; hideOverlay();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Touch
+let touchY = null;
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  touchY = e.touches[0].clientY;
+  if (mode === 'idle' || mode === 'over') {
+    initGame(); mode = 'playing'; hideOverlay();
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (touchY === null) return;
+  const dy = e.touches[0].clientY - touchY;
+  lp.y = Math.max(0, Math.min(H - lp.h, lp.y + dy * 0.9));
+  touchY = e.touches[0].clientY;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { touchY = null; });
+
+// ─── Boot ──────────────────────────────────────────────────────────────────
+initGame();          // sets up objects so draw() is always safe
+mode = 'idle';
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
